@@ -1,48 +1,174 @@
-import React, { Component } from "react";
-import { Switch, Route, Link } from "react-router-dom";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "./App.css";
-import AddE1337 from "./components/AddE1337";
-import E1337 from "./components/E1337";
-import E1337List from "./components/E1337List";
+import React, { useState, useEffect } from 'react';
+import {
+  BrowserRouter,
+  Switch,
+  Route,
+  Link,
+} from "react-router-dom";
+import Login from './components/Login';
+import TwitchLogin from './components/TwitchLogin';
+import Logout from './components/Logout';
+import UserPage from './pages/User';
+import axios from 'axios';
+import styled from 'styled-components';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTasks } from '@fortawesome/free-solid-svg-icons';
+import { baseBackendUrl } from './urls';
 
 function App() {
-  return (
-    <div>
-      <nav className="navbar navbar-expand navbar-dark bg-dark">
-        <a href="/e1337" className="navbar-brand">
-          bezKoder
-        </a>
-        <div className="navbar-nav mr-auto">
-          <li className="nav-item">
-            <Link to={"/e1337"} className="nav-link">
-              Tutorials
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link to={"/add"} className="nav-link">
-              Add
-            </Link>
-          </li>
-        </div>
-      </nav>
 
-      <div className="container mt-3">
-        <Switch>
-          <Route exact path={["/", "/tutorials"]} component={E1337List} />
-          <Route exact path="/add" component={AddE1337} />
-          <Route path="/e1337/:id" component={E1337} />
-        </Switch>
-      </div>
-    </div>
+  const [token, setToken] = useState(null);
+  const [authUser, setAuthUser] = useState('');
+  const [message, setMessage] = useState([]);
+  const clearMsg = () => {
+    setMessage([]);
+  }
+
+  // returns array of messages returned to message state by API calls
+  const displayMsg = message.map(msg => <li key={msg.indexOf(message)}>{msg}</li>)
+
+  const checkToken = () => {
+    setToken(localStorage.getItem('token'));
+  }
+
+  const config = {
+    method: 'get',
+    url: `${baseBackendUrl}/dj-rest-auth/user/`,
+    headers: {
+        Authorization: 'Token ' + token 
+    }
+  }
+
+  useEffect(() => {
+    // console.log(`triggering dj-rest-auth/user/ with token ${token}`);
+    if (token) {
+      axios(config)
+      .then(res => setAuthUser(res.data.username))
+      .catch(err => {
+        console.log(err);
+      });
+    }
+  }, [token]);
+
+  useEffect(() => {
+    checkToken();
+  }, [token, message]);
+
+  return (
+    <BrowserRouter>
+    {/* <Route path="/twitch/:code" render={locationProps => <TwitchLogin params={locationProps} setMessage={setMessage} setToken={setToken} />}/> */}
+      <Nav>
+        <Link to="/">Home</Link>
+        {token ? 
+          <div className="auth-div">
+            <Link to={{
+              pathname: `/users/${authUser}`,
+              state: { fromDashboard: true }
+            }}><FontAwesomeIcon icon={faTasks} /></Link>
+
+            <Logout setToken={setToken} setMessage={setMessage} setAuthUser={setAuthUser} />
+          </div>
+          :
+          <Login setToken={setToken} setMessage={setMessage}/>
+        }
+      </Nav>
+
+      <Message>
+        {message.length > 0 ?
+          <>
+            <div className="msg-div">
+              <ul>{displayMsg}</ul>
+              <span onClick={clearMsg}>&times;</span>
+            </div>
+            <div className="clear-div"></div>
+          </>
+          :
+          ''
+        }
+      </Message>
+      <Switch>
+
+        <Route
+          path="/twitch/:code"
+          render={
+            locationProps => 
+            <TwitchLogin 
+              params={locationProps}
+              setMessage={setMessage}
+              setToken={setToken} 
+            />
+          }
+        />
+
+        <Route
+          path="/users/:user"
+          render={
+            routerProps =>
+            <UserPage
+              username={routerProps}
+              authUser={authUser}
+            />
+          } 
+        />
+
+      </Switch>
+
+    </BrowserRouter>
   );
 }
 
 
-// class App extends Component {
-//   render() {
-//     // ...
-//   }
-// }
+const Nav = styled.nav`
+  border: transparent;
+  border-radius: 35px;
+  background-color: #1b1b1b;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 5vw;
+  align-items: center;
+  margin: 1% 2%;
+  height: 10vh;
+  font-size: 30px;
+  a {
+    text-decoration: none;
+    color: #e3cac8;
+  }
+  a:hover {
+    /* animate underline? */
+    text-decoration: underline;
+    text-decoration-color: #e3cac8;
+    cursor: pointer;
+  }
+  .auth-div {
+    a {
+      margin: 0 15px;
+    }
+  }
+`
+
+const Message = styled.div`
+  margin: 5vh 0;
+  .msg-div {
+    color: #e3cac8;
+    background-color: #1b1b1b;
+    border: transparent;
+    border-radius: 35px;
+    margin: 0 2%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    float: left;
+    span {
+      height: auto;
+      padding: 0 30px;
+    }
+    span:hover {
+      cursor: pointer;
+    }
+  }
+  .clear-div {
+    clear: both;
+  }
+`
 
 export default App;
